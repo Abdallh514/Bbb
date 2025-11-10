@@ -72,7 +72,7 @@ bot.on('callback_query', (callbackQuery) => {
                     const N2 = msg3.text;
 
                     // الأمر مع المتغيرات
-                    let commandTemplate = 'node /home/username/spurt/name.js (site) (N1) (N2)'; // ضع المسار الصحيح
+                    let commandTemplate = 'node HTTP-CRYPTER.js (site) (N1) (N2) 5 c.txt'; // ضع المسار الصحيح
                     let command = commandTemplate
                         .replace('(site)', site)
                         .replace('(N1)', N1)
