@@ -2,26 +2,36 @@ const TelegramBot = require('node-telegram-bot-api');
 const { spawn } = require('child_process');
 const treeKill = require('tree-kill');
 
+// --- إعدادات البوت ---
 const TOKEN = '7813302624:AAFPSHI1NbKip6_is6WAW5YQnGHXBkEUp6E';
-const ADMIN_ID = 6371768226;
-const PASSWORD = '5140';
+const ADMIN_ID = 6371768226; // رقمك
+const PASSWORD = '5140';      // كلمة السر
+const ALLOWED_USERS = [6371768226]; // أضف أي ID تريد السماح له
 
 const bot = new TelegramBot(TOKEN, { polling: true });
+
 let currentPID = null;
 let authorizedUsers = new Set();
 
-// /start
+// --- زر Admin لإضافة مستخدم جديد ---
+const ADMIN_BUTTONS = [
+    [{ text: '➕ إضافة مستخدم جديد', callback_data: 'add_user' }]
+];
+
+// --- /start ---
 bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
 
-    bot.sendMessage(chatId, `👋 مرحباً بك في البوت الخاص 🎯\nهذا بوت حصري لـعبد الودود فقط.\n\n🔐 الرجاء كتابة كلمة السر للمتابعة:`);
+    bot.sendMessage(chatId, `👋 مرحباً بك في البوت الخاص 🎯
+هذا بوت حصري فقط للأشخاص المصرح لهم.
+🔐 الرجاء كتابة كلمة السر للمتابعة:`);
 });
 
-// التحقق من كلمة السر
+// --- التحقق من كلمة السر ---
 bot.on('message', (msg) => {
     const chatId = msg.chat.id;
 
-    if (chatId != ADMIN_ID) {
+    if (!ALLOWED_USERS.includes(chatId)) {
         bot.sendMessage(chatId, '🚫 هذا البوت خاص، لا يمكنك استخدامه.');
         return;
     }
@@ -30,11 +40,12 @@ bot.on('message', (msg) => {
         if (msg.text === PASSWORD) {
             authorizedUsers.add(chatId);
 
-            bot.sendMessage(chatId, `✅ تم قبولك! مرحباً بك عبد الودود 🥳`, {
+            bot.sendMessage(chatId, `✅ تم قبولك! مرحباً بك 🥳`, {
                 reply_markup: {
                     inline_keyboard: [
                         [{ text: '🚀 تشغيل العملية', callback_data: 'run_command' }],
-                        [{ text: '🛑 إيقاف العملية', callback_data: 'stop_command' }]
+                        [{ text: '🛑 إيقاف العملية', callback_data: 'stop_command' }],
+                        ...chatId === ADMIN_ID ? ADMIN_BUTTONS : [] // يظهر فقط للـ Admin
                     ]
                 }
             });
@@ -46,7 +57,7 @@ bot.on('message', (msg) => {
     }
 });
 
-// التعامل مع الأزرار
+// --- التعامل مع الأزرار ---
 bot.on('callback_query', (callbackQuery) => {
     const chatId = callbackQuery.message.chat.id;
     const data = callbackQuery.data;
@@ -57,8 +68,8 @@ bot.on('callback_query', (callbackQuery) => {
         return;
     }
 
+    // --- تشغيل العملية ---
     if (data === 'run_command') {
-        // نطلب الموقع وعدد N1 و N2
         bot.sendMessage(chatId, '🌐 الرجاء كتابة الموقع:');
         bot.once('message', (msg1) => {
             const site = msg1.text;
@@ -71,14 +82,13 @@ bot.on('callback_query', (callbackQuery) => {
                 bot.once('message', (msg3) => {
                     const N2 = msg3.text;
 
-                    // الأمر مع المتغيرات
-                    let commandTemplate = 'node HTTP-CRYPTER.js (site) (N1) (N2) 5 c.txt'; // ضع المسار الصحيح
+                    // أمر التشغيل مع المتغيرات
+                    let commandTemplate = 'node /home/username/spurt/name.js (site) (N1) (N2)'; // عدل المسار
                     let command = commandTemplate
                         .replace('(site)', site)
                         .replace('(N1)', N1)
                         .replace('(N2)', N2);
 
-                    // تشغيل الأمر باستخدام spawn
                     const args = command.split(' ').slice(1); // كل شيء بعد node
                     const child = spawn('node', args, { shell: true });
 
@@ -103,6 +113,7 @@ bot.on('callback_query', (callbackQuery) => {
         });
     }
 
+    // --- إيقاف العملية ---
     if (data === 'stop_command') {
         if (currentPID) {
             treeKill(currentPID, 'SIGKILL', (err) => {
@@ -113,6 +124,26 @@ bot.on('callback_query', (callbackQuery) => {
         } else {
             bot.sendMessage(chatId, '⚠️ لا توجد عملية شغالة حالياً.');
         }
+    }
+
+    // --- إضافة مستخدم جديد (زر Admin) ---
+    if (data === 'add_user') {
+        if (chatId !== ADMIN_ID) {
+            bot.sendMessage(chatId, '🚫 هذا الزر خاص بالمدير فقط.');
+            bot.answerCallbackQuery(callbackQuery.id);
+            return;
+        }
+
+        bot.sendMessage(chatId, '📝 أرسل الآن ID تيليجرام للشخص الجديد:');
+        bot.once('message', (msg) => {
+            const newId = parseInt(msg.text);
+            if (!ALLOWED_USERS.includes(newId)) {
+                ALLOWED_USERS.push(newId);
+                bot.sendMessage(chatId, `✅ تم إضافة ${newId} لقائمة المصرح لهم.`);
+            } else {
+                bot.sendMessage(chatId, `⚠️ هذا ID موجود بالفعل.`);
+            }
+        });
     }
 
     bot.answerCallbackQuery(callbackQuery.id);
